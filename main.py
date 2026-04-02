@@ -1,0 +1,1 @@
+mọi người tạo nhánh riêng từ nhánh main nhé quy tắc đặt tên thì ví dụ huy/... và pull request nhé k 

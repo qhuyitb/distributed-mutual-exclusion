@@ -143,12 +143,11 @@ class Node:
             self.in_cs = True
             self.logger.log(f">>> ENTER CS (request timestamp={self.request_timestamp})", self.clock.get_time())
 
-        # Thay đổi nội dung tài nguyên dùng chung
+        # Tăng giá trị shared.txt lên 1 khi vào CS
         try:
-            access_count = self.shared_resource.get_access_count() + 1
-            message = f"Access #{access_count}"
-            self.shared_resource.write_access_record(self.node_id, message)
-            self.logger.log(f"Wrote to shared.txt: Node {self.node_id} - {message}", self.clock.get_time())
+            access_count = self.shared_resource.increment()
+            message = f"Counter updated to {access_count}"
+            self.logger.log(f"Updated shared.txt: Node {self.node_id} - {message}", self.clock.get_time())
         except Exception as e:
             self.logger.log(f"Error accessing shared resource: {e}", self.clock.get_time())
 

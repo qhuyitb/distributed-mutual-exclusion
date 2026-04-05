@@ -1,0 +1,9 @@
+Shared Resource - Access Log
+============================
+
+[2026-04-04 22:33:58.042] Node 1 accessed CS - Access #1
+[2026-04-04 22:34:08.791] Node 2 accessed CS - Access #1
+[2026-04-04 22:34:16.742] Node 1 accessed CS - Access #2
+[2026-04-04 22:34:59.501] Node 1 accessed CS - Access #3
+[2026-04-04 22:35:08.182] Node 1 accessed CS - Access #4
+[2026-04-04 22:35:13.429] Node 2 accessed CS - Access #5

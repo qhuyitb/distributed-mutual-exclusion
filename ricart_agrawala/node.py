@@ -8,6 +8,7 @@ from logger import Logger
 from message import Message
 from network import Network
 from config import CS_DURATION
+from shared_resource import SharedResource
 
 
 @total_ordering
@@ -33,6 +34,7 @@ class Node:
         self.clock = LamportClock()
         self.logger = Logger(self.node_id)
         self.network = Network(self.node_id, host, port, self._on_message)
+        self.shared_resource = SharedResource()
 
         self.request_queue = []
         self.reply_count = 0
@@ -140,6 +142,15 @@ class Node:
         with self.lock:
             self.in_cs = True
             self.logger.log(f">>> ENTER CS (request timestamp={self.request_timestamp})", self.clock.get_time())
+
+        # Thay đổi nội dung tài nguyên dùng chung
+        try:
+            access_count = self.shared_resource.get_access_count() + 1
+            message = f"Access #{access_count}"
+            self.shared_resource.write_access_record(self.node_id, message)
+            self.logger.log(f"Wrote to shared.txt: Node {self.node_id} - {message}", self.clock.get_time())
+        except Exception as e:
+            self.logger.log(f"Error accessing shared resource: {e}", self.clock.get_time())
 
         time.sleep(CS_DURATION)
 

@@ -6,13 +6,23 @@ Chay cac kich ban giao tiep giua cac node trong vong
 import time
 import sys
 import os
-import sys
 from ring_manager import TokenRingManager
 from message import MessageType
 import logging
 
+# Thêm custom logging level MESSAGE
+MESSAGE_LEVEL = 25
+logging.addLevelName(MESSAGE_LEVEL, "MESSAGE")
+
+def message_log(self, message, *args, **kwargs):
+    """Custom log method cho MESSAGE level"""
+    if self.isEnabledFor(MESSAGE_LEVEL):
+        self._log(MESSAGE_LEVEL, message, args, **kwargs)
+
+logging.Logger.message = message_log
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -213,4 +223,5 @@ def main():
 
 
 if __name__ == '__main__':
+    main()
     main()

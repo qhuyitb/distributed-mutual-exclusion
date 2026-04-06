@@ -10,7 +10,7 @@
 
 ### 2️⃣ Chuyển Thư Mục
 ```bash
-cd d:\Huy\Documents\HTPT\BTL\token_ring\src
+cd ..\token_ring\src
 ```
 
 ### 3️⃣ Chạy Demo
@@ -142,47 +142,3 @@ Cách sửa: cd token_ring/src
 
 ---
 
-## 📚 Muốn Hiểu Hơn?
-
-| Muốn | Đọc |
-|------|-----|
-| Bắt đầu nhanh | [QUICK_START.md](QUICK_START.md) |
-| Giới thiệu | [README_VI.md](README_VI.md) |
-| Hướng dẫn chi tiết | [HUONG_DAN.md](HUONG_DAN.md) |
-| Kiến trúc kỹ thuật | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| Tóm tắt | [SUMMARY.md](SUMMARY.md) |
-| Mục lục | [INDEX.md](INDEX.md) |
-
----
-
-## ✅ Checklist
-
-- [ ] Cài Python 3.6+
-- [ ] Vào thư mục `token_ring/src`
-- [ ] Chạy `python demo.py 1`
-- [ ] Thấy output token di chuyển
-- [ ] Thấy thống kê các node
-- [ ] Đọc tài liệu để hiểu hơn
-
----
-
-## 🎉 Bạn Đã Chạy Thành Công!
-
-Token Ring Implementation đã được thực thi thành công trên máy của bạn!
-
-### Tiếp Theo:
-1. Chạy các demo khác
-2. Chạy các ví dụ
-3. Đọc tài liệu chi tiết
-4. Sửa đổi code để tìm hiểu
-
----
-
-**Chúc mừng! 🎊**
-
-```
-Bạn vừa thực hiện một thuật toán mạng quan trọng:
-Token Ring - Vòng Logic với Truyền/Nhận Token
-```
-
-**Bắt đầu nào!** ▶️

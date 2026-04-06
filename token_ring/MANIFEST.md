@@ -6,14 +6,14 @@
 **Phiên Bản**: 1.0  
 **Ngày Tạo**: 2026-04-01  
 **Ngôn Ngữ**: Python 3.6+  
-**Trạng Thái**: ✅ Hoàn thành
+
 
 ---
 
 ## 📁 Cấu Trúc Dự Án
 
 ```
-d:\Huy\Documents\HTPT\BTL\token_ring\
+token_ring\
 │
 ├─ 📄 RUN_ME.md                   (Chạy ngay - 3 bước)
 ├─ 📄 QUICK_START.md              (Bắt đầu nhanh - 2 phút)

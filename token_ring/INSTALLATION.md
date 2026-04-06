@@ -28,22 +28,9 @@ token_ring/
 cd d:\Huy\Documents\HTPT\BTL\distributed-mutual-exclusion\token_ring
 ```
 
-### 2. Tạo Virtual Environment (Tùy chọn nhưng khuyến nghị)
-```bash
-python -m venv venv
-```
 
-Kích hoạt Virtual Environment:
-- **Windows:**
-  ```bash
-  venv\Scripts\activate
-  ```
-- **macOS/Linux:**
-  ```bash
-  source venv/bin/activate
-  ```
 
-### 3. Cài đặt Dependencies
+### 2. Cài đặt Dependencies
 ```bash
 pip install -r requirements.txt
 ```
@@ -53,9 +40,9 @@ Nếu chưa có `requirements.txt`, cài đặt các package cần thiết:
 pip install dataclasses-json
 ```
 
-### 4. Chạy Chương trình
+### 3. Chạy Chương trình
 ```bash
-python src/main.py
+python src/demo.py
 ```
 
 ### 5. Chạy Unit Tests

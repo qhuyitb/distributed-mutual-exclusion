@@ -257,7 +257,6 @@ class Node:
     def send_data(self, dest_node: int, body: str) -> None:
         payload = {"type": "DATA", "src": self.node_id, "dest": int(dest_node), "body": body}
         # send into ring (to next hop)
-        print(f"[Node {self.node_id}] sending DATA to node {dest_node} via port {self.next_node_port}: {body}")
         self._send_payload(payload, self.next_node_port)
         try:
             self.data_sent_count += 1
@@ -269,11 +268,18 @@ class Node:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(2)
             s.connect((self.host, port))
-            s.sendall(json.dumps(payload).encode("utf-8"))
+            # Support sending either raw dict payloads (legacy) or Message objects
+            if isinstance(payload, Message):
+                s.sendall(payload.to_bytes())
+            else:
+                s.sendall(json.dumps(payload).encode("utf-8"))
             s.close()
             # successful send - log to stdout for terminal visibility
             try:
-                ptype = payload.get("type")
+                if isinstance(payload, Message):
+                    ptype = getattr(payload, "msg_type", "MSG")
+                else:
+                    ptype = payload.get("type")
                 print(f"[Node {self.node_id}] sent {ptype} to port {port}")
             except Exception:
                 pass

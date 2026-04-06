@@ -44,7 +44,7 @@ class Network:
         # for tests we deliver to node at index sender_id + 1
         dest_index = (sender_id + 1) % self.num_nodes
         self.nodes[dest_index].received_messages.append(message)
-        txt = f"Network delivered message from Node {sender_id} to Node {dest_index}: {message}"
+        txt = f"{message}"
         print(txt)
         self._append_event(txt)
         self._log(txt)

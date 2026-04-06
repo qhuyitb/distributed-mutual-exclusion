@@ -77,6 +77,11 @@ def main():
             cmd += " --auto-demo"
             # include demo chance explicitly so each node uses the same value
             cmd += f' --demo-chance {args.demo_chance}'
+            # propagate burst size if provided
+            try:
+                cmd += f' --demo-burst-max {args.demo_burst_max}'
+            except Exception:
+                pass
         # make node 0 the bootstrapper
         if i == 0:
             cmd += " --bootstrap"

@@ -25,6 +25,7 @@ def parse_args():
     p.add_argument("--stats-dir", type=str, default=None, help="Directory to write per-node stats on exit")
     p.add_argument("--auto-demo", action="store_true", help="Automatically send DATA messages when holding the token")
     p.add_argument("--demo-chance", type=float, default=0.5, help="Probability [0..1] to send a DATA message when receiving the token")
+    p.add_argument("--demo-burst-max", type=int, default=1, help="If >1, send between 1 and this many DATA messages when demo triggers")
     return p.parse_args()
 
 
@@ -41,18 +42,19 @@ def main():
     node.set_ring(num_nodes)
     node.start()
 
-    # If requested, attach a demo callback that sends a DATA message with some probability
+    # If requested, attach a demo callback that sends one or more DATA messages with some probability
     if args.auto_demo:
         def demo_on_token(payload):
             try:
-                # pick a random destination different from self
-                if node.num_nodes and node.num_nodes > 1:
-                    if random.random() <= args.demo_chance:
+                # pick random destinations and send a burst of messages
+                if node.num_nodes and node.num_nodes > 1 and random.random() <= args.demo_chance:
+                    burst_max = max(1, int(getattr(args, "demo_burst_max", 1)))
+                    count = random.randint(1, burst_max)
+                    for _ in range(count):
                         dest = random.randrange(0, node.num_nodes)
                         if dest == node.node_id:
                             dest = (dest + 1) % node.num_nodes
                         body = f"auto message from {node.node_id} at {time.time()}"
-                        print(f"[Node {node.node_id}] demo sending DATA to {dest}")
                         node.send_data(dest, body)
             except Exception as e:
                 print(f"[Node {node_id}] demo_on_token error: {e}")

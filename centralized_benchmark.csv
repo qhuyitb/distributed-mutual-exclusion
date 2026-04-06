@@ -1,0 +1,4 @@
+algorithm,scenario_name,success,duration_seconds,total_events,total_messages,request_count,cs_entries,avg_waiting_time,max_waiting_time,mutual_exclusion_violations,fairness_violations,messages_by_type,entries_by_node,errors
+"centralized","low_contention","True","4.204","37","9","3","3","0.0465","0.0491","0","0","{'REQUEST': 3, 'GRANT': 3, 'RELEASE': 3}","{1: 1, 2: 1, 3: 1}","[]"
+"centralized","high_contention","True","4.719","48","12","4","4","1.7077","3.3129","0","0","{'REQUEST': 4, 'GRANT': 4, 'RELEASE': 4}","{1: 1, 2: 1, 3: 1, 4: 1}","[]"
+"centralized","round_robin","True","4.205","64","18","6","6","0.0535","0.0675","0","0","{'REQUEST': 6, 'GRANT': 6, 'RELEASE': 6}","{1: 2, 2: 2, 3: 2}","[]"

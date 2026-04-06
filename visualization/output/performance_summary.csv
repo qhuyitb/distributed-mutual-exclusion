@@ -1,0 +1,10 @@
+algorithm,scenario,duration_seconds,total_messages,avg_waiting_time,max_waiting_time
+Centralized,low_contention,4.212,9.0,0.0435,0.046
+Centralized,high_contention,4.702,12.0,1.7095,3.2961
+Centralized,round_robin,4.203,18.0,0.0524,0.074
+Ricart-Agrawala,low_contention,4.001,15.0,0.0009,0.0012
+Ricart-Agrawala,high_contention,4.006,30.0,1.4269,2.8526
+Ricart-Agrawala,round_robin,4.001,36.0,0.0005,0.0007
+Token Ring,low_contention,4.04,8.0,0.1193,0.1529
+Token Ring,high_contention,4.314,5.0,1.6046,3.2101
+Token Ring,round_robin,4.04,8.0,0.0371,0.1523

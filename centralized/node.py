@@ -44,11 +44,6 @@ class Node:
         self.granted_event.set()
 
     def enter_CS(self, wait_timeout: float = 10.0):
-        """Gửi REQUEST và chờ GRANT trước khi vào vùng tới hạn.
-
-        wait_timeout giúp tránh treo vô hạn khi Coordinator gặp sự cố.
-        """
-
         print(f"[Node {self.id}] Gui REQUEST")
         self.last_request_ts = time.time()
         request = Message(
@@ -68,7 +63,6 @@ class Node:
 
         print(f"[Node {self.id}] >>> ENTER CS")
         time.sleep(2)
-
         self.exit_CS()
 
     def exit_CS(self):

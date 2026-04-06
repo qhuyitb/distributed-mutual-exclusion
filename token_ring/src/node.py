@@ -242,7 +242,12 @@ class Node:
                 return
             self.has_token = False
 
-        payload = {"type": "TOKEN", "token_id": token_id or id(time.time()), "from": self.node_id}
+        # Build a Message.token so the sent packet follows message.py structure
+        try:
+            payload = Message.token(self.node_id, token_id=token_id or id(time.time()), lamport=getattr(self, "lamport", None))
+        except Exception:
+            # fallback to legacy dict if Message construction fails
+            payload = {"type": "TOKEN", "token_id": token_id or id(time.time()), "from": self.node_id}
         # destination info for nicer logging
         try:
             dest_id = (self.node_id + 1) % self.num_nodes if self.num_nodes else None
@@ -255,7 +260,19 @@ class Node:
         self._send_payload(payload, self.next_node_port)
 
     def send_data(self, dest_node: int, body: str) -> None:
-        payload = {"type": "DATA", "src": self.node_id, "dest": int(dest_node), "body": body}
+        # If this node currently holds the token, log that it is entering the
+        # critical section before sending the DATA packet (logging only).
+        try:
+            if getattr(self, "has_token", False):
+                print(f"[Node {self.node_id}] Entering Critical Section")
+        except Exception:
+            pass
+
+        # Build a Message.data_msg so packet conforms to message.py structure
+        try:
+            payload = Message.data_msg(self.node_id, int(dest_node), body)
+        except Exception:
+            payload = {"type": "DATA", "src": self.node_id, "dest": int(dest_node), "body": body}
         # send into ring (to next hop)
         self._send_payload(payload, self.next_node_port)
         try:
@@ -281,6 +298,19 @@ class Node:
                 else:
                     ptype = payload.get("type")
                 print(f"[Node {self.node_id}] sent {ptype} to port {port}")
+                # print full structured payload according to message.py
+                try:
+                    if isinstance(payload, Message):
+                        payload_repr = payload.to_dict()
+                    else:
+                        payload_repr = payload
+                    try:
+                        print(f"[Node {self.node_id}] payload: {json.dumps(payload_repr, ensure_ascii=False)}")
+                    except Exception:
+                        # fallback if payload contains non-serializable objects
+                        print(f"[Node {self.node_id}] payload: {payload_repr}")
+                except Exception:
+                    pass
             except Exception:
                 pass
         except Exception as e:

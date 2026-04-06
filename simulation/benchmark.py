@@ -16,8 +16,6 @@ def run_benchmark(
     scenarios = get_default_scenarios()
 
     if scenario_names is None:
-        # Mặc định chỉ chạy các scenario benchmark cơ bản.
-        # node_crash_recover để riêng vì nhiều adapter chưa hỗ trợ fault injection.
         selected_names = ["low_contention", "high_contention", "round_robin"]
     else:
         selected_names = list(scenario_names)
@@ -53,6 +51,9 @@ def print_results_table(results: List[SimulationResult]) -> None:
         "scenario",
         "success",
         "messages",
+        "bg_msgs",
+        "req_token",
+        "idle_token",
         "requests",
         "entries",
         "avg_wait",
@@ -69,13 +70,22 @@ def print_results_table(results: List[SimulationResult]) -> None:
                 item["scenario_name"],
                 str(item["success"]),
                 str(item["total_messages"]),
+                str(item.get("background_messages", 0)),
+                str(item.get("request_related_token_messages", 0)),
+                str(item.get("idle_token_messages", 0)),
                 str(item["request_count"]),
                 str(item["cs_entries"]),
-                f'{item["avg_waiting_time"]:.4f}' if isinstance(item["avg_waiting_time"], (int, float)) else str(item["avg_waiting_time"]),
-                f'{item["max_waiting_time"]:.4f}' if isinstance(item["max_waiting_time"], (int, float)) else str(item["max_waiting_time"]),
+                f'{item["avg_waiting_time"]:.4f}'
+                if isinstance(item["avg_waiting_time"], (int, float))
+                else str(item["avg_waiting_time"]),
+                f'{item["max_waiting_time"]:.4f}'
+                if isinstance(item["max_waiting_time"], (int, float))
+                else str(item["max_waiting_time"]),
                 str(item["mutual_exclusion_violations"]),
                 str(item["fairness_violations"]),
-                f'{item["duration_seconds"]:.3f}' if isinstance(item["duration_seconds"], (int, float)) else str(item["duration_seconds"]),
+                f'{item["duration_seconds"]:.3f}'
+                if isinstance(item["duration_seconds"], (int, float))
+                else str(item["duration_seconds"]),
             ]
         )
 
@@ -111,6 +121,9 @@ def export_results_to_csv(results: List[SimulationResult], output_path: str) -> 
         "duration_seconds",
         "total_events",
         "total_messages",
+        "background_messages",
+        "request_related_token_messages",
+        "idle_token_messages",
         "request_count",
         "cs_entries",
         "avg_waiting_time",
@@ -122,29 +135,18 @@ def export_results_to_csv(results: List[SimulationResult], output_path: str) -> 
         "errors",
     ]
 
+    def normalize(value):
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False)
+        return value
+
     def escape_csv(value) -> str:
-        text = str(value)
+        text = str(normalize(value))
         text = text.replace('"', '""')
         return f'"{text}"'
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(",".join(headers) + "\n")
         for item in summaries:
-            row = [
-                item.get("algorithm"),
-                item.get("scenario_name"),
-                item.get("success"),
-                item.get("duration_seconds"),
-                item.get("total_events"),
-                item.get("total_messages"),
-                item.get("request_count"),
-                item.get("cs_entries"),
-                item.get("avg_waiting_time"),
-                item.get("max_waiting_time"),
-                item.get("mutual_exclusion_violations"),
-                item.get("fairness_violations"),
-                item.get("messages_by_type"),
-                item.get("entries_by_node"),
-                item.get("errors"),
-            ]
+            row = [item.get(header) for header in headers]
             f.write(",".join(escape_csv(value) for value in row) + "\n")

@@ -1,0 +1,10 @@
+algorithm,scenario_name,success,duration_seconds,total_events,total_messages,background_messages,request_related_token_messages,idle_token_messages,request_count,cs_entries,avg_waiting_time,max_waiting_time,mutual_exclusion_violations,fairness_violations,messages_by_type,entries_by_node,errors
+"centralized","low_contention","True","4.212","37","9","None","None","None","3","3","0.0435","0.046","0","0","{""REQUEST"": 3, ""GRANT"": 3, ""RELEASE"": 3}","{""1"": 1, ""2"": 1, ""3"": 1}","[]"
+"centralized","high_contention","True","4.702","48","12","None","None","None","4","4","1.7095","3.2961","0","0","{""REQUEST"": 4, ""GRANT"": 4, ""RELEASE"": 4}","{""1"": 1, ""2"": 1, ""3"": 1, ""4"": 1}","[]"
+"centralized","round_robin","True","4.203","64","18","None","None","None","6","6","0.0524","0.074","0","0","{""REQUEST"": 6, ""GRANT"": 6, ""RELEASE"": 6}","{""1"": 2, ""2"": 2, ""3"": 2}","[]"
+"ricart_agrawala","low_contention","True","4.001","47","15","None","None","None","3","3","0.0009","0.0012","0","0","{""REQUEST"": 6, ""REPLY"": 9}","{""1"": 1, ""2"": 1, ""3"": 1}","[]"
+"ricart_agrawala","high_contention","True","4.006","82","30","None","None","None","4","4","1.4269","2.8526","0","0","{""REQUEST"": 12, ""REPLY"": 18}","{""1"": 1, ""2"": 1, ""3"": 1, ""4"": 1}","[]"
+"ricart_agrawala","round_robin","True","4.001","98","36","None","None","None","6","6","0.0005","0.0007","0","0","{""REQUEST"": 12, ""REPLY"": 24}","{""1"": 2, ""2"": 2, ""3"": 2}","[]"
+"token_ring","low_contention","True","4.04","147","8","None","None","None","3","3","0.1193","0.1529","0","0","{""TOKEN"": 8}","{""1"": 1, ""2"": 1, ""3"": 1}","[]"
+"token_ring","high_contention","True","4.314","48","5","None","None","None","4","4","1.6046","3.2101","0","0","{""TOKEN"": 5}","{""3"": 1, ""4"": 1, ""1"": 1, ""2"": 1}","[]"
+"token_ring","round_robin","True","4.04","156","8","None","None","None","6","6","0.0371","0.1523","0","0","{""TOKEN"": 8}","{""1"": 2, ""2"": 2, ""3"": 2}","[]"

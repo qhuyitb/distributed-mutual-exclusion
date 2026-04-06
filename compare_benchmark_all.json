@@ -1,0 +1,221 @@
+[
+  {
+    "algorithm": "centralized",
+    "scenario_name": "low_contention",
+    "success": true,
+    "duration_seconds": 4.212,
+    "total_events": 37,
+    "total_messages": 9,
+    "messages_by_type": {
+      "REQUEST": 3,
+      "GRANT": 3,
+      "RELEASE": 3
+    },
+    "request_count": 3,
+    "cs_entries": 3,
+    "avg_waiting_time": 0.0435,
+    "max_waiting_time": 0.046,
+    "entries_by_node": {
+      "1": 1,
+      "2": 1,
+      "3": 1
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  },
+  {
+    "algorithm": "centralized",
+    "scenario_name": "high_contention",
+    "success": true,
+    "duration_seconds": 4.702,
+    "total_events": 48,
+    "total_messages": 12,
+    "messages_by_type": {
+      "REQUEST": 4,
+      "GRANT": 4,
+      "RELEASE": 4
+    },
+    "request_count": 4,
+    "cs_entries": 4,
+    "avg_waiting_time": 1.7095,
+    "max_waiting_time": 3.2961,
+    "entries_by_node": {
+      "1": 1,
+      "2": 1,
+      "3": 1,
+      "4": 1
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  },
+  {
+    "algorithm": "centralized",
+    "scenario_name": "round_robin",
+    "success": true,
+    "duration_seconds": 4.203,
+    "total_events": 64,
+    "total_messages": 18,
+    "messages_by_type": {
+      "REQUEST": 6,
+      "GRANT": 6,
+      "RELEASE": 6
+    },
+    "request_count": 6,
+    "cs_entries": 6,
+    "avg_waiting_time": 0.0524,
+    "max_waiting_time": 0.074,
+    "entries_by_node": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  },
+  {
+    "algorithm": "ricart_agrawala",
+    "scenario_name": "low_contention",
+    "success": true,
+    "duration_seconds": 4.001,
+    "total_events": 47,
+    "total_messages": 15,
+    "messages_by_type": {
+      "REQUEST": 6,
+      "REPLY": 9
+    },
+    "request_count": 3,
+    "cs_entries": 3,
+    "avg_waiting_time": 0.0009,
+    "max_waiting_time": 0.0012,
+    "entries_by_node": {
+      "1": 1,
+      "2": 1,
+      "3": 1
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  },
+  {
+    "algorithm": "ricart_agrawala",
+    "scenario_name": "high_contention",
+    "success": true,
+    "duration_seconds": 4.006,
+    "total_events": 82,
+    "total_messages": 30,
+    "messages_by_type": {
+      "REQUEST": 12,
+      "REPLY": 18
+    },
+    "request_count": 4,
+    "cs_entries": 4,
+    "avg_waiting_time": 1.4269,
+    "max_waiting_time": 2.8526,
+    "entries_by_node": {
+      "1": 1,
+      "2": 1,
+      "3": 1,
+      "4": 1
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  },
+  {
+    "algorithm": "ricart_agrawala",
+    "scenario_name": "round_robin",
+    "success": true,
+    "duration_seconds": 4.001,
+    "total_events": 98,
+    "total_messages": 36,
+    "messages_by_type": {
+      "REQUEST": 12,
+      "REPLY": 24
+    },
+    "request_count": 6,
+    "cs_entries": 6,
+    "avg_waiting_time": 0.0005,
+    "max_waiting_time": 0.0007,
+    "entries_by_node": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  },
+  {
+    "algorithm": "token_ring",
+    "scenario_name": "low_contention",
+    "success": true,
+    "duration_seconds": 4.04,
+    "total_events": 147,
+    "total_messages": 8,
+    "messages_by_type": {
+      "TOKEN": 8
+    },
+    "request_count": 3,
+    "cs_entries": 3,
+    "avg_waiting_time": 0.1193,
+    "max_waiting_time": 0.1529,
+    "entries_by_node": {
+      "1": 1,
+      "2": 1,
+      "3": 1
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  },
+  {
+    "algorithm": "token_ring",
+    "scenario_name": "high_contention",
+    "success": true,
+    "duration_seconds": 4.314,
+    "total_events": 48,
+    "total_messages": 5,
+    "messages_by_type": {
+      "TOKEN": 5
+    },
+    "request_count": 4,
+    "cs_entries": 4,
+    "avg_waiting_time": 1.6046,
+    "max_waiting_time": 3.2101,
+    "entries_by_node": {
+      "3": 1,
+      "4": 1,
+      "1": 1,
+      "2": 1
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  },
+  {
+    "algorithm": "token_ring",
+    "scenario_name": "round_robin",
+    "success": true,
+    "duration_seconds": 4.04,
+    "total_events": 156,
+    "total_messages": 8,
+    "messages_by_type": {
+      "TOKEN": 8
+    },
+    "request_count": 6,
+    "cs_entries": 6,
+    "avg_waiting_time": 0.0371,
+    "max_waiting_time": 0.1523,
+    "entries_by_node": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "mutual_exclusion_violations": 0,
+    "fairness_violations": 0,
+    "errors": []
+  }
+]

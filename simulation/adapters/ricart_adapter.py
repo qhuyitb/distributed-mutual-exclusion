@@ -6,7 +6,7 @@ import threading
 import time
 from pathlib import Path
 from types import MethodType
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from simulation.contracts import (
     AlgorithmAdapter,
@@ -104,6 +104,7 @@ class RicartAgrawalaAdapter(AlgorithmAdapter):
                     node_id=node_id,
                     details={"error": str(exc)},
                 )
+                print(f"[RA][Node {node_id}] ERROR: {exc}")
 
         thread = threading.Thread(target=worker, name=f"ra-node-{node_id}-request")
         thread.start()
@@ -159,6 +160,7 @@ class RicartAgrawalaAdapter(AlgorithmAdapter):
                     "expected_replies": num_expected,
                 },
             )
+            print(f"[RA][Node {_external_node_id(inner_self.id)}] REQUEST CS ts={request_ts}")
 
             for peer in inner_self.all_nodes:
                 if peer.id in nodes_to_send:
@@ -180,6 +182,10 @@ class RicartAgrawalaAdapter(AlgorithmAdapter):
                         },
                     )
 
+                    print(
+                        f"[RA][Node {_external_node_id(inner_self.id)}] "
+                        f"-> REQUEST to Node {_external_node_id(peer.id)} ts={request_ts}"
+                    )
                     peer.receive_request(msg)
 
             with inner_self.lock:
@@ -194,12 +200,18 @@ class RicartAgrawalaAdapter(AlgorithmAdapter):
                     "replies_received": inner_self.replies_received,
                 },
             )
+            print(
+                f"[RA][Node {_external_node_id(inner_self.id)}] "
+                f"ENTER CS after {inner_self.replies_received} replies"
+            )
 
             inner_self.in_cs = True
             time.sleep(getattr(inner_self, "_next_cs_duration_seconds", inner_self.cs_work_time))
             inner_self.exit_cs()
 
         def instrumented_exit_cs(inner_self) -> None:
+            print(f"[RA][Node {_external_node_id(inner_self.id)}] EXIT CS")
+
             collector.add(
                 event_type=EventType.EXIT_CS,
                 node_id=_external_node_id(inner_self.id),
@@ -235,6 +247,10 @@ class RicartAgrawalaAdapter(AlgorithmAdapter):
                     },
                 )
 
+                print(
+                    f"[RA][Node {_external_node_id(inner_self.id)}] "
+                    f"-> DEFERRED REPLY to Node {_external_node_id(requester_id)}"
+                )
                 inner_self.all_nodes[requester_id].receive_reply(msg)
 
         def instrumented_receive_request(inner_self, msg) -> None:
@@ -247,6 +263,10 @@ class RicartAgrawalaAdapter(AlgorithmAdapter):
                     "lamport_timestamp": msg.timestamp,
                     "sequence_num": msg.sequence_num,
                 },
+            )
+            print(
+                f"[RA][Node {_external_node_id(inner_self.id)}] "
+                f"RECEIVE REQUEST from Node {_external_node_id(msg.sender_id)} ts={msg.timestamp}"
             )
 
             inner_self.update_clock(msg.timestamp)
@@ -280,6 +300,10 @@ class RicartAgrawalaAdapter(AlgorithmAdapter):
                     },
                 )
 
+                print(
+                    f"[RA][Node {_external_node_id(inner_self.id)}] "
+                    f"-> IMMEDIATE REPLY to Node {_external_node_id(msg.sender_id)}"
+                )
                 inner_self.all_nodes[msg.sender_id].receive_reply(reply_msg)
 
         def instrumented_receive_reply(inner_self, msg) -> None:
@@ -292,6 +316,10 @@ class RicartAgrawalaAdapter(AlgorithmAdapter):
                     "lamport_timestamp": msg.timestamp,
                     "sequence_num": msg.sequence_num,
                 },
+            )
+            print(
+                f"[RA][Node {_external_node_id(inner_self.id)}] "
+                f"RECEIVE REPLY from Node {_external_node_id(msg.sender_id)}"
             )
 
             inner_self.update_clock(msg.timestamp)

@@ -85,7 +85,15 @@ class ScenarioDefinition:
 
 @dataclass(slots=True)
 class SimulationMetrics:
+    # total_messages giờ mang nghĩa:
+    # số message PHỤC VỤ REQUEST, dùng để so sánh công bằng giữa các thuật toán
     total_messages: int = 0
+
+    # background_messages:
+    # số message nền không trực tiếp phục vụ request
+    # hiện chủ yếu dùng cho Token Ring khi token chạy rảnh
+    background_messages: int = 0
+
     request_count: int = 0
     cs_entries: int = 0
 
@@ -95,7 +103,13 @@ class SimulationMetrics:
     mutual_exclusion_violations: int = 0
     fairness_violations: int = 0
 
+    # messages_by_type giờ chỉ thống kê message phục vụ request
     messages_by_type: Dict[str, int] = field(default_factory=dict)
+
+    # riêng cho Token Ring để báo cáo công bằng hơn
+    request_related_token_messages: int = 0
+    idle_token_messages: int = 0
+
     entries_by_node: Dict[int, int] = field(default_factory=dict)
     waiting_time_by_node: Dict[int, List[float]] = field(default_factory=dict)
 

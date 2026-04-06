@@ -6,7 +6,7 @@ import threading
 import time
 import queue
 from typing import Optional, Dict, Any
-from message import Message, MessageType, create_token_message, create_ack_message
+from .message import Message, MessageType, create_token_message, create_ack_message
 import logging
 
 # Cấu hình logging

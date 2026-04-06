@@ -5,7 +5,7 @@ Xử lý logic truyền token giữa các node
 import threading
 import time
 from typing import List, Dict, Any, Optional
-from message import Message, Token, create_token_message, MessageType
+from .message import Message, Token, create_token_message, MessageType
 import logging
 
 logger = logging.getLogger(__name__)

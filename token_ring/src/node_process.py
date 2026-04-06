@@ -13,7 +13,7 @@ import os
 import sys
 import time
 
-from node import Node
+from .node import Node
 
 
 def parse_args() -> argparse.Namespace:

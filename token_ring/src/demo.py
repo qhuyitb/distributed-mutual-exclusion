@@ -6,13 +6,24 @@ Chay cac kich ban giao tiep giua cac node trong vong
 import time
 import sys
 import os
-import sys
+import subprocess
 from ring_manager import TokenRingManager
 from message import MessageType
 import logging
 
+# Thêm custom logging level MESSAGE
+MESSAGE_LEVEL = 25
+logging.addLevelName(MESSAGE_LEVEL, "MESSAGE")
+
+def message_log(self, message, *args, **kwargs):
+    """Custom log method cho MESSAGE level"""
+    if self.isEnabledFor(MESSAGE_LEVEL):
+        self._log(MESSAGE_LEVEL, message, args, **kwargs)
+
+logging.Logger.message = message_log
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -33,14 +44,14 @@ def demo_basic_ring():
     # Start ring
     manager.start_ring()
     
-    # Run for 15 seconds
+    # Run for 30 seconds
     print("\nToken is circulating...")
-    print("Press Ctrl+C to stop or wait 15 seconds\n")
+    print("Press Ctrl+C to stop or wait 30 seconds\n")
     
     try:
-        for i in range(15):
+        for i in range(30):
             time.sleep(1)
-            sys.stdout.write(f"\rTime: {i+1}/15 seconds")
+            sys.stdout.write(f"\rTime: {i+1}/30 seconds")
             sys.stdout.flush()
     except KeyboardInterrupt:
         print("\n\nStopped by user")
@@ -59,7 +70,7 @@ def demo_message_passing():
     print("="*80 + "\n")
     
     # Tạo vòng
-    manager = TokenRingManager(num_nodes=4, base_port=6000)
+    manager = TokenRingManager(num_nodes=4, base_port=5000)
     manager.create_ring()
     manager.start_ring()
     
@@ -213,4 +224,5 @@ def main():
 
 
 if __name__ == '__main__':
+    main()
     main()

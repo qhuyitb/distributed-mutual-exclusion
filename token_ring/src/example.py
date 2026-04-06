@@ -64,7 +64,7 @@ def example_2_unicast_message():
     manager.unicast_message(
         sender_id=0,
         receiver_id=3,
-        message_type=MessageType.REQUEST.value,
+        msg_type=MessageType.REQUEST.value,
         data={
             'query': 'Hỏi thông tin từ Node 3',
             'timestamp': time.time()
@@ -78,7 +78,7 @@ def example_2_unicast_message():
     manager.unicast_message(
         sender_id=3,
         receiver_id=0,
-        message_type=MessageType.REPLY.value,
+        msg_type=MessageType.REPLY.value,
         data={
             'answer': 'Phản hồi từ Node 3',
             'status': 'OK'

@@ -12,6 +12,8 @@ import json
 import time
 from typing import Optional
 
+from message import Message, MessageType
+
 
 class Node:
     def __init__(self, node_id: int, base_port: int = 5000, host: str = "127.0.0.1"):
@@ -33,6 +35,8 @@ class Node:
             self.on_token = None
             self.token_count = 0
             self.data_sent_count = 0
+            # Lamport clock for logical timestamps (in-memory nodes)
+            self.lamport = 0
             return
 
         # Normal socket-backed node
@@ -51,6 +55,8 @@ class Node:
         # Counters for basic stats
         self.token_count = 0
         self.data_sent_count = 0
+        # Lamport clock for socket-backed node
+        self.lamport = 0
 
     # Compatibility methods for in-memory simulated nodes (used by tests)
     def receive_token(self, token):
@@ -147,23 +153,42 @@ class Node:
             data = client_sock.recv(4096)
             if not data:
                 return
-            payload = json.loads(data.decode("utf-8"))
-            mtype = payload.get("type")
-            if mtype == "TOKEN":
-                self._on_token(payload)
-            elif mtype == "DATA":
-                self._on_data(payload)
+            # try to parse our Message framing
+            try:
+                msg = Message.from_bytes(data)
+            except Exception:
+                # fallback to old dict-based payloads
+                payload = json.loads(data.decode("utf-8"))
+                mtype = payload.get("type")
+                if mtype == "TOKEN":
+                    msg = Message(MessageType.TOKEN.value, payload.get("from"), None, payload.get("token_id"), None, data=None)
+                else:
+                    msg = Message(MessageType.DATA.value, payload.get("src"), payload.get("dest"), None, None, data=payload.get("body"))
+
+            if msg.msg_type == MessageType.TOKEN.value:
+                self._on_token(msg)
+            elif msg.msg_type == MessageType.DATA.value:
+                self._on_data(msg)
             else:
-                print(f"[Node {self.node_id}] unknown message type: {mtype}")
+                print(f"[Node {getattr(self,'node_id', '?')}] unknown message type: {msg.msg_type}")
         except Exception as e:
-            print(f"[Node {self.node_id}] client handler error: {e}")
+            print(f"[Node {getattr(self,'node_id','?')}] client handler error: {e}")
         finally:
             try:
                 client_sock.close()
             except Exception:
                 pass
 
-    def _on_token(self, payload: dict) -> None:
+    def _on_token(self, msg: Message) -> None:
+        # update Lamport clock from incoming message
+        try:
+            if msg.lamport is not None:
+                self.lamport = max(self.lamport, msg.lamport) + 1
+            else:
+                self.lamport += 1
+        except Exception:
+            self.lamport = getattr(self, "lamport", 0) + 1
+
         with self._lock:
             self.has_token = True
         # increment counter
@@ -171,14 +196,14 @@ class Node:
             self.token_count += 1
         except Exception:
             pass
-        token_id = payload.get("token_id")
-        print(f"[Node {self.node_id}] received TOKEN (id={token_id})")
+        token_id = msg.sequence_num
+        print(f"[Node {self.node_id}] received TOKEN (id={token_id}) lamport={self.lamport}")
 
         # Optional user callback to perform actions while holding the token (e.g. send DATA)
         try:
             if callable(self.on_token):
                 # call synchronously so demo actions happen before forwarding
-                self.on_token(payload)
+                self.on_token(msg)
         except Exception as e:
             print(f"[Node {self.node_id}] on_token callback error: {e}")
 
@@ -188,15 +213,28 @@ class Node:
         # forward the token to next node
         self.forward_token(token_id)
 
-    def _on_data(self, payload: dict) -> None:
-        dest = payload.get("dest")
-        src = payload.get("src")
-        body = payload.get("body")
+    def _on_data(self, msg: Message) -> None:
+        # update Lamport clock
+        try:
+            if msg.lamport is not None:
+                self.lamport = max(self.lamport, msg.lamport) + 1
+            else:
+                self.lamport += 1
+        except Exception:
+            self.lamport = getattr(self, "lamport", 0) + 1
+
+        dest = msg.receiver_id
+        src = msg.sender_id
+        body = msg.data
         if dest == self.node_id:
-            print(f"[Node {self.node_id}] DATA from {src}: {body}")
+            print(f"[Node {self.node_id}] DATA from {src}: {body} lamport={self.lamport}")
         else:
-            # forward along the ring
-            self._send_payload(payload, self.next_node_port)
+            # forward along the ring: update message lamport and resend
+            try:
+                msg.lamport = self.lamport
+            except Exception:
+                pass
+            self._send_payload(msg, self.next_node_port)
 
     def forward_token(self, token_id=None) -> None:
         with self._lock:
@@ -244,10 +282,15 @@ class Node:
 
     def inject_initial_token(self) -> None:
         # Only used by bootstrap node to start the token
-        payload = {"type": "TOKEN", "token_id": id(self)}
+        # Build a Message.token so _on_token receives a Message instance (not a raw dict)
+        try:
+            msg = Message.token(self.node_id, token_id=id(self), lamport=getattr(self, "lamport", None))
+        except Exception:
+            # fallback to a minimal Message-like dict if Message class is unavailable
+            msg = {"type": "TOKEN", "token_id": id(self), "from": self.node_id}
         print(f"[Node {self.node_id}] injecting initial token to self")
         # Deliver to self by calling handler
-        threading.Thread(target=self._on_token, args=(payload,), daemon=True).start()
+        threading.Thread(target=self._on_token, args=(msg,), daemon=True).start()
 
     def __str__(self) -> str:
         return f"Node(id={self.node_id}, port={self.port})"

@@ -1,0 +1,15 @@
+# Token Ring Implementation - Python Requirements
+# Không có dependency bên ngoài - chỉ dùng thư viện chuẩn của Python
+
+python>=3.6
+
+# Thư viện chuẩn được sử dụng:
+# - socket: Giao tiếp mạng
+# - threading: Xử lý đa luồng
+# - queue: Hàng đợi thread-safe
+# - json: Serialize/deserialize gói tin
+# - time: Xử lý thời gian
+# - logging: Ghi log
+# - enum: Loại enum
+# - dataclasses: Cấu trúc dữ liệu
+# - typing: Type hints

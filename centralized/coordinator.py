@@ -70,11 +70,9 @@ class Coordinator:
         self.comm.send(grant)
 
     def handle_request(self, message: Message):
-        """Xử lý REQUEST theo đúng chính sách cấp quyền tập trung."""
-
         with self.lock:
             requester_id = message.sender_id
-            print(f"[Coordinator] REQUEST tu Node {requester_id}")
+            print(f"[Coordinator] REQUEST từ Node {requester_id}")
 
             if not self.is_locked:
                 self.is_locked = True
@@ -84,10 +82,8 @@ class Coordinator:
                 self.queue.put(requester_id)
 
     def handle_release(self, message: Message):
-        """Xử lý RELEASE và cấp quyền tiếp theo theo thứ tự FIFO."""
-
         with self.lock:
-            print(f"[Coordinator] RELEASE tu Node {message.sender_id}")
+            print(f"[Coordinator] RELEASE từ Node {message.sender_id}")
 
             if not self.queue.empty():
                 next_node = self.queue.get()

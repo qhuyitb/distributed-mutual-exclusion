@@ -1,0 +1,387 @@
+"""
+distributed/ra_process.py
+--------------------------
+Cài đặt thuật toán Ricart–Agrawala cho đồng bộ truy cập CS phân tán.
+
+Thuật toán:
+  - Không có server trung tâm. Mỗi process nói chuyện trực tiếp với nhau.
+  - Dựa trên Lamport Clock để xác định thứ tự ưu tiên.
+
+3 quy tắc cốt lõi:
+  1. Khi muốn vào CS  → broadcast REQUEST(ts, pid) đến TẤT CẢ, chờ đủ REPLY.
+  2. Khi nhận REQUEST → nếu mình không WANTED/HELD: REPLY ngay.
+                         nếu mình đang WANTED/HELD và request của mình ưu tiên hơn
+                         (ts nhỏ hơn, hoặc ts bằng nhau nhưng pid nhỏ hơn): defer.
+                         ngược lại: REPLY ngay.
+  3. Khi ra khỏi CS  → gửi REPLY cho tất cả pid trong deferred_queue.
+
+Chỉ cần dùng:
+    from common import BaseProcess, PeerInfo, State
+    class RAProcess(BaseProcess): ...
+"""
+
+import threading
+import time
+import sys, os
+
+# Thêm thư mục GỐC của project (chứa cả common/ và ra_refactor/)
+# __file__ = .../ra_refactor/ra_process.py
+# os.path.dirname(..., 2 lần) = thư mục gốc project
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+from common import BaseProcess, PeerInfo, State
+from common import msg_request, msg_reply, msg_release, MsgType
+
+
+class RAProcess(BaseProcess):
+    """
+    Process cài đặt thuật toán Ricart–Agrawala.
+
+    Kế thừa BaseProcess: socket server, Lamport clock, send/broadcast
+    đã được xử lý sẵn. Class này chỉ cần override 3 hàm:
+      - _handle_message()
+      - request_cs()
+      - release_cs()
+    """
+
+    def __init__(self, pid: int, host: str, port: int, peers: list):
+        # Khởi tạo BaseProcess (socket server, clock, stats...)
+        super().__init__(pid, host, port, peers)
+
+        # ── Dữ liệu riêng của Ricart–Agrawala ──────────────────────────
+        # Số REPLY cần nhận = số peer (N - 1)
+        self.n_peers = len(peers)
+
+        # Đếm REPLY đã nhận cho lần request hiện tại
+        self.reply_count = 0
+        self._reply_lock = threading.Lock()
+
+        # Timestamp khi gửi REQUEST (dùng để so sánh ưu tiên)
+        self.request_ts = 0
+
+        # Danh sách pid cần gửi REPLY sau khi ra CS
+        self.deferred: list[int] = []
+        self._defer_lock = threading.Lock()
+
+    # ─────────────────────────────────────────────────────────────────
+    # PHẦN 1: Xin vào Critical Section
+    # ─────────────────────────────────────────────────────────────────
+
+    def request_cs(self) -> None:
+        """
+        Yêu cầu vào CS. Hàm BLOCK đến khi được cấp phép.
+
+        Luồng:
+          1. Chuyển sang WANTED
+          2. Ghi nhớ timestamp
+          3. Broadcast REQUEST đến tất cả peer
+          4. Chờ cs_event (được set khi reply_count == n_peers)
+          5. Chuyển sang HELD → vào CS
+        """
+        # Bước 1-2: Đánh dấu WANTED, tăng clock, ghi timestamp
+        with self.state_lock:
+            self.state = State.WANTED
+            ts = self.tick()
+            self.request_ts = ts
+
+        self.log(f"Xin vào CS với timestamp={ts}")
+
+        # Bước 3: Broadcast REQUEST đến tất cả peer
+        self.cs_event.clear()
+        with self._reply_lock:
+            self.reply_count = 0
+
+        payload = msg_request(sender_id=self.pid, timestamp=ts)
+        self.broadcast(payload)
+        self.log(f"Đã broadcast REQUEST đến {self.n_peers} peer")
+
+        # Bước 4: Chờ đủ REPLY từ tất cả peer (blocking)
+        self.cs_event.wait()
+
+        # Bước 5: Được cấp phép → vào CS
+        with self.state_lock:
+            self.state = State.HELD
+        self.log("Được cấp phép → vào CS")
+
+    # ─────────────────────────────────────────────────────────────────
+    # PHẦN 2: Ra khỏi Critical Section
+    # ─────────────────────────────────────────────────────────────────
+
+    def release_cs(self) -> None:
+        """
+        Ra khỏi CS và gửi REPLY cho tất cả các process đang bị defer.
+
+        Luồng:
+          1. Chuyển sang RELEASED
+          2. Gửi REPLY đến tất cả pid trong deferred_queue
+          3. Xóa deferred_queue
+        """
+        with self.state_lock:
+            self.state = State.RELEASED
+
+        # Lấy toàn bộ deferred list và clear (atomic)
+        with self._defer_lock:
+            to_reply = list(self.deferred)
+            self.deferred.clear()
+
+        if to_reply:
+            self.log(f"Ra CS, gửi REPLY đến deferred: {to_reply}")
+        else:
+            self.log("Ra CS (không có ai bị defer)")
+
+        ts = self.tick()
+        payload = msg_reply(sender_id=self.pid, timestamp=ts)
+        for pid in to_reply:
+            self.send_to_pid(pid, payload, async_send=True)
+
+    # ─────────────────────────────────────────────────────────────────
+    # PHẦN 3: Xử lý message nhận được (trái tim của thuật toán)
+    # ─────────────────────────────────────────────────────────────────
+
+    def _handle_message(self, msg: dict, conn) -> None:
+        """
+        Dispatcher: phân loại và xử lý message theo type.
+        Được gọi tự động bởi BaseProcess khi có kết nối mới đến.
+        """
+        mtype = msg["type"]
+
+        if mtype == MsgType.REQUEST:
+            self._on_request(msg)
+        elif mtype == MsgType.REPLY:
+            self._on_reply(msg)
+        elif mtype == MsgType.RELEASE:
+            self._on_release(msg)
+        else:
+            self.log(f"Nhận message không rõ type: {mtype}", level="warning")
+
+    def _on_request(self, msg: dict) -> None:
+        """
+        Xử lý REQUEST từ process khác.
+
+        Quyết định có REPLY ngay hay defer:
+          - Nếu mình HELD → defer (đang dùng CS, chưa thể nhường)
+          - Nếu mình WANTED và request của MÌNH ưu tiên hơn → defer
+          - Còn lại → REPLY ngay
+        """
+        sender_pid = msg["sender"]
+        sender_ts  = msg["timestamp"]
+
+        self.log(f"Nhận REQUEST từ P{sender_pid} (ts={sender_ts})")
+
+        with self.state_lock:
+            current_state = self.state
+            my_ts         = self.request_ts
+
+        should_defer = False
+
+        if current_state == State.HELD:
+            # Mình đang trong CS → phải chờ mình ra
+            should_defer = True
+
+        elif current_state == State.WANTED:
+            # Cả hai đang muốn vào CS → so sánh ưu tiên
+            # Ưu tiên cao hơn = timestamp nhỏ hơn
+            # Nếu timestamp bằng nhau → pid nhỏ hơn thắng (tie-break)
+            my_priority     = (my_ts,     self.pid)
+            their_priority  = (sender_ts, sender_pid)
+            should_defer    = (my_priority < their_priority)
+
+        # State == RELEASED → REPLY ngay (không cần CS)
+
+        if should_defer:
+            with self._defer_lock:
+                self.deferred.append(sender_pid)
+            self.log(f"Defer REPLY đến P{sender_pid} "
+                     f"(my_priority={my_ts},{self.pid} < "
+                     f"their={sender_ts},{sender_pid}: {should_defer})")
+        else:
+            ts = self.tick()
+            payload = msg_reply(sender_id=self.pid, timestamp=ts)
+            self.send_to_pid(sender_pid, payload, async_send=True)
+            self.log(f"REPLY ngay cho P{sender_pid}")
+
+    def _on_reply(self, msg: dict) -> None:
+        """
+        Xử lý REPLY từ peer.
+        Đếm số REPLY nhận được. Khi đủ N-1 → set cs_event → unblock request_cs().
+        """
+        sender_pid = msg["sender"]
+
+        with self._reply_lock:
+            self.reply_count += 1
+            count = self.reply_count
+
+        self.log(f"Nhận REPLY từ P{sender_pid} ({count}/{self.n_peers})")
+
+        if count == self.n_peers:
+            self.log("Đủ REPLY → được phép vào CS")
+            self.cs_event.set()
+
+    def _on_release(self, msg: dict) -> None:
+        """
+        Một số cài đặt gửi RELEASE khi ra CS thay vì REPLY.
+        Trong R-A chuẩn thì không cần, nhưng xử lý phòng trường hợp
+        peer dùng phiên bản hơi khác.
+        """
+        self.log(f"Nhận RELEASE từ P{msg['sender']} (bỏ qua trong R-A chuẩn)")
+
+
+# ─────────────────────────────────────────────────────────────────
+# Script chạy demo
+# ─────────────────────────────────────────────────────────────────
+
+def run_demo(n_processes: int = 3, base_port: int = 25000):
+    """
+    Chạy demo N process Ricart–Agrawala trên localhost.
+    Mỗi process sẽ lần lượt vào CS 1 lần.
+    In log ra màn hình để thấy luồng REQUEST/REPLY.
+    """
+    print(f"\n{'='*55}")
+    print(f"  Demo Ricart–Agrawala với {n_processes} process")
+    print(f"{'='*55}\n")
+
+    # Tạo danh sách thông tin tất cả process
+    all_info = [
+        PeerInfo(pid=i, host="127.0.0.1", port=base_port + i)
+        for i in range(n_processes)
+    ]
+
+    # Tạo mỗi process với danh sách peer (trừ chính mình)
+    processes = []
+    for info in all_info:
+        peers = [p for p in all_info if p.pid != info.pid]
+        proc  = RAProcess(
+            pid   = info.pid,
+            host  = info.host,
+            port  = info.port,
+            peers = peers,
+        )
+        processes.append(proc)
+
+    # Khởi động server socket cho tất cả
+    for proc in processes:
+        proc.start()
+    time.sleep(0.5)  # đợi socket sẵn sàng
+
+    # Mỗi process chạy trong thread riêng
+    # Thứ tự cố ý ngẫu nhiên để thấy thuật toán phân xử
+    results = {}
+
+    def worker(proc: RAProcess):
+        try:
+            t_start = time.time()
+            proc.request_cs()
+            t_enter = time.time()
+
+            proc.do_critical_section(duration=0.3)
+
+            proc.release_cs()
+            t_end = time.time()
+
+            results[proc.pid] = {
+                "wait_time" : round(t_enter - t_start, 3),
+                "cs_time"   : round(t_end - t_enter, 3),
+            }
+        except Exception as e:
+            proc.log(f"Lỗi: {e}", level="error")
+
+    threads = [
+        threading.Thread(target=worker, args=(proc,), daemon=True)
+        for proc in processes
+    ]
+
+    # Khởi động lệch nhau 100ms để thấy cạnh tranh
+    for i, t in enumerate(threads):
+        t.start()
+        time.sleep(0.05)
+
+    for t in threads:
+        t.join(timeout=30)
+
+    # In kết quả
+    print(f"\n{'='*55}")
+    print("  Kết quả:")
+    print(f"{'─'*55}")
+    for pid in sorted(results):
+        r = results[pid]
+        stats = processes[pid].get_stats()
+        print(f"  P{pid}: chờ={r['wait_time']}s | "
+              f"msg_sent={stats['msg_sent']} | "
+              f"msg_recv={stats['msg_recv']}")
+
+    total_msgs = sum(p.get_stats()["msg_total"] for p in processes)
+    print(f"{'─'*55}")
+    print(f"  Tổng message toàn mạng: {total_msgs}")
+    print(f"  Lý thuyết R-A: {n_processes} * 2 * ({n_processes}-1) = "
+          f"{n_processes * 2 * (n_processes - 1)} message")
+    print(f"{'='*55}\n")
+
+    for proc in processes:
+        proc.stop()
+
+
+def run_node(pid: int, n: int, base_port: int = 25000):
+    """
+    Chạy 1 process ở chế độ interactive.
+    Mỗi terminal chạy 1 lệnh này với pid khác nhau.
+    """
+    all_info = [
+        PeerInfo(pid=i, host="127.0.0.1", port=base_port + i)
+        for i in range(n)
+    ]
+    peers = [p for p in all_info if p.pid != pid]
+
+    proc = RAProcess(
+        pid=pid,
+        host="127.0.0.1",
+        port=base_port + pid,
+        peers=peers,
+    )
+    proc.start()
+
+    print(f"\n  P{pid} đã khởi động | cổng={base_port + pid}")
+    print(f"  Lệnh: [r] request CS  |  [q] thoát\n")
+
+    while True:
+        try:
+            cmd = input(f"P{pid}> ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        if cmd == "r":
+            # Chạy trong thread riêng để không block input
+            threading.Thread(target=_do_cs, args=(proc,), daemon=True).start()
+        elif cmd == "q":
+            break
+        elif cmd == "s":
+            print(f"  Stats: {proc.get_stats()}")
+            print(f"  State: {proc.state} | clock: {proc.clock}")
+        else:
+            print("  Lệnh: r=request, s=stats, q=quit")
+
+    proc.stop()
+
+
+def _do_cs(proc: RAProcess):
+    """Thực hiện 1 chu kỳ vào/ra CS."""
+    proc.request_cs()
+    proc.do_critical_section(duration=2.0)  # 2s để giáo viên thấy rõ
+    proc.release_cs()
+
+
+if __name__ == "__main__":
+    import sys
+    # python ra_process.py <pid> <tổng_số_process>
+    # Ví dụ: python ra_process.py 0 3
+    if len(sys.argv) == 3:
+        run_node(pid=int(sys.argv[1]), n=int(sys.argv[2]))
+    elif len(sys.argv) == 2 and sys.argv[1] == "auto":
+        run_demo(n_processes=3)   # chế độ tự động như cũ
+    else:
+        print("Dùng: python ra_process.py <pid> <n>")
+        print("  Ví dụ 3 terminal:")
+        print("    python ra_process.py 0 3")
+        print("    python ra_process.py 1 3")
+        print("    python ra_process.py 2 3")

@@ -364,24 +364,63 @@ def run_node(pid: int, n: int, base_port: int = 25000):
     proc.stop()
 
 
-def _do_cs(proc: RAProcess):
-    """Thực hiện 1 chu kỳ vào/ra CS."""
-    proc.request_cs()
-    proc.do_critical_section(duration=2.0)  # 2s để giáo viên thấy rõ
-    proc.release_cs()
+# def _do_cs(proc: RAProcess):
+#     """Thực hiện 1 chu kỳ vào/ra CS."""
+#     proc.request_cs()
+#     proc.do_critical_section(duration=2.0)  # 2s để giáo viên thấy rõ
+#     proc.release_cs()
 
+def _do_cs(proc, duration=5.0):
+    print(f"\n  [{proc.pid}] → REQUEST gửi đến {len(proc.peers)} peer...")
+    proc.request_cs()
+    print(f"\n  [{proc.pid}] | TRONG CS | (giữ {duration}s)")
+    proc.do_critical_section(duration=duration)
+    proc.release_cs()
+    print(f"\n  [{proc.pid}] → RELEASED, đã gửi REPLY cho deferred\n")
 
 if __name__ == "__main__":
     import sys
-    # python ra_process.py <pid> <tổng_số_process>
-    # Ví dụ: python ra_process.py 0 3
-    if len(sys.argv) == 3:
-        run_node(pid=int(sys.argv[1]), n=int(sys.argv[2]))
-    elif len(sys.argv) == 2 and sys.argv[1] == "auto":
-        run_demo(n_processes=3)   # chế độ tự động như cũ
-    else:
-        print("Dùng: python ra_process.py <pid> <n>")
-        print("  Ví dụ 3 terminal:")
-        print("    python ra_process.py 0 3")
-        print("    python ra_process.py 1 3")
-        print("    python ra_process.py 2 3")
+    from common.config_loader import load_config, get_peers
+
+    if len(sys.argv) < 2:
+        print("Dùng: python ra_process.py <pid>")
+        print("  Ví dụ: python ra_process.py 0")
+        sys.exit(1)
+
+    pid    = int(sys.argv[1])
+    cfg    = load_config()          # đọc config.json tự động
+    nodes  = cfg["nodes"]
+    peers  = get_peers(nodes, pid)
+
+    # Kiểm tra pid hợp lệ
+    me = next((n for n in nodes if n.pid == pid), None)
+    if me is None:
+        print(f"Lỗi: pid={pid} không có trong config.json")
+        sys.exit(1)
+
+    proc = RAProcess(
+        pid   = pid,
+        host  = me.host,
+        port  = me.port,
+        peers = peers,
+    )
+    proc.start()
+
+    print(f"\n  P{pid} | {me.host}:{me.port} | {len(peers)} peer")
+    print(f"  Lệnh: [r] request CS | [s] stats | [q] quit\n")
+
+    while True:
+        try:
+            cmd = input(f"P{pid}> ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        if cmd == "r":
+            threading.Thread(target=_do_cs,
+                args=(proc, cfg["cs_duration"]), daemon=True).start()
+        elif cmd == "s":
+            print(f"  {proc.get_stats()} | state={proc.state} | clock={proc.clock}")
+        elif cmd == "q":
+            break
+
+    proc.stop()

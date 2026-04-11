@@ -156,6 +156,7 @@ class BaseProcess(ABC):
 
         with self._stat_lock:
             self.msg_sent += 1
+            
 
     def broadcast(self, payload: bytes,
                   exclude_pid: Optional[int] = None) -> None:

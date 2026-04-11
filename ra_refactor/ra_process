@@ -69,27 +69,18 @@ class RAProcess(BaseProcess):
     # PHẦN 1: Xin vào Critical Section
     # ─────────────────────────────────────────────────────────────────
 
-    def request_cs(self) -> None:
+    def request_cs(self) -> bool:
         """
-        Yêu cầu vào CS. Hàm BLOCK đến khi được cấp phép.
-
-        Luồng:
-          1. Chuyển sang WANTED
-          2. Ghi nhớ timestamp
-          3. Broadcast REQUEST đến tất cả peer
-          4. Chờ cs_event (được set khi reply_count == n_peers)
-          5. Chuyển sang HELD → vào CS
+        Trả về True nếu được vào CS, False nếu timeout.
         """
-        # Bước 1-2: Đánh dấu WANTED, tăng clock, ghi timestamp
         with self.state_lock:
             self.state = State.WANTED
             ts = self.tick()
             self.request_ts = ts
 
         self.log(f"Xin vào CS với timestamp={ts}")
-
-        # Bước 3: Broadcast REQUEST đến tất cả peer
         self.cs_event.clear()
+
         with self._reply_lock:
             self.reply_count = 0
 
@@ -97,13 +88,49 @@ class RAProcess(BaseProcess):
         self.broadcast(payload)
         self.log(f"Đã broadcast REQUEST đến {self.n_peers} peer")
 
-        # Bước 4: Chờ đủ REPLY từ tất cả peer (blocking)
-        self.cs_event.wait()
+        TIMEOUT_PER_PEER = 5.0
+        total_timeout = TIMEOUT_PER_PEER * self.n_peers
+        granted = self.cs_event.wait(timeout=total_timeout)
 
-        # Bước 5: Được cấp phép → vào CS
+        if not granted:
+            with self._reply_lock:
+                received = self.reply_count
+            self.log(
+                f"TIMEOUT sau {total_timeout}s! "
+                f"Chỉ nhận được {received}/{self.n_peers} REPLY. "
+                f"Một hoặc nhiều peer có thể đã crash.",
+                level="warning"
+            )
+            self._handle_timeout()
+            return False   # ← báo thất bại
+
         with self.state_lock:
             self.state = State.HELD
         self.log("Được cấp phép → vào CS")
+        return True        # ← báo thành công
+
+    
+    def _handle_timeout(self) -> None:
+        """
+        Gọi khi chờ REPLY quá timeout.
+        Tìm peer chưa reply → đánh dấu suspected crash.
+        """
+        with self._reply_lock:
+            received = self.reply_count
+
+        # Không biết chắc peer nào crash → thông báo chung
+        self.log(
+            "Trong R-A gốc: không có cơ chế xử lý → process bị block.\n"
+            "  Mở rộng thực tế: cần failure detector (Zookeeper/etcd)\n"
+            "  để xác định peer nào crash và loại khỏi tập N.",
+            level="warning"
+        )
+
+        # Reset state để không bị kẹt mãi
+        with self.state_lock:
+            self.state = State.RELEASED
+
+        self.log("State reset về RELEASED. Có thể thử request lại.", level="warning")
 
     # ─────────────────────────────────────────────────────────────────
     # PHẦN 2: Ra khỏi Critical Section
@@ -227,6 +254,36 @@ class RAProcess(BaseProcess):
         """
         self.log(f"Nhận RELEASE từ P{msg['sender']} (bỏ qua trong R-A chuẩn)")
 
+    def _mark_suspected(self, pid: int) -> None:
+        """
+        Khi phát hiện peer crash trong lúc đang WANTED:
+        Tự cấp REPLY thay cho peer đó để không bị block mãi.
+
+        LƯU Ý: Đây là heuristic đơn giản để demo —
+        hệ thống thực cần đồng thuận (consensus) trước khi
+        làm điều này, nếu không có thể vi phạm mutual exclusion.
+        """
+        if not hasattr(self, '_suspected'):
+            self._suspected = set()
+
+        if pid in self._suspected:
+            return
+        self._suspected.add(pid)
+
+        self.log(
+            f"P{pid} suspected crash — "
+            f"tự giả lập REPLY thay thế (demo only, không dùng production)",
+            level="warning"
+        )
+
+        # Nếu đang WANTED → giả lập nhận được REPLY từ peer crash
+        with self.state_lock:
+            is_wanted = (self.state == State.WANTED)
+
+        if is_wanted:
+            fake_msg = {"type": MsgType.REPLY, "sender": pid,
+                        "timestamp": 0, "sent_at": 0}
+            self._on_reply(fake_msg)
 
 # ─────────────────────────────────────────────────────────────────
 # Script chạy demo
@@ -372,7 +429,13 @@ def run_node(pid: int, n: int, base_port: int = 25000):
 
 def _do_cs(proc, duration=5.0):
     print(f"\n  [{proc.pid}] → REQUEST gửi đến {len(proc.peers)} peer...")
-    proc.request_cs()
+
+    success = proc.request_cs()   # ← thêm dòng này
+
+    if not success:               # ← thêm kiểm tra
+        print(f"\n  [{proc.pid}] TIMEOUT — không vào được CS. Gõ 'r' để thử lại\n")
+        return
+
     print(f"\n  [{proc.pid}] | TRONG CS | (giữ {duration}s)")
     proc.do_critical_section(duration=duration)
     proc.release_cs()

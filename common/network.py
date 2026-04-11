@@ -143,17 +143,21 @@ def send_to(host: str, port: int, payload: bytes,
 
 
 def send_to_async(host: str, port: int, payload: bytes,
-                  timeout: float = 5.0) -> None:
+                  timeout: float = 5.0,
+                  on_fail=None) -> None:
     """
-    Gửi message trong thread riêng — không block tiến trình gọi.
-    Dùng khi cần broadcast đến nhiều process cùng lúc.
+    Gửi message trong thread riêng.
+    on_fail: callable, gọi khi không kết nối được.
     """
-    t = threading.Thread(
-        target=_send_safe,
-        args=(host, port, payload, timeout),
-        daemon=True
-    )
-    t.start()
+    def _run():
+        try:
+            send_to(host, port, payload, timeout)
+        except ConnectionError as e:
+            logger.warning("Gửi đến %s:%d thất bại: %s", host, port, e)
+            if on_fail:
+                on_fail()   # ← gọi callback báo lỗi
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def _send_safe(host: str, port: int, payload: bytes, timeout: float) -> None:

@@ -141,22 +141,61 @@ class BaseProcess(ABC):
     # ─── Gửi message ─────────────────────────
 
     def send_one(self, peer: PeerInfo, payload: bytes,
-                 async_send: bool = True) -> None:
+             async_send: bool = True,
+             timeout: float = 5.0) -> None:
         """
         Gửi 1 message đến 1 peer.
 
         Args:
             async_send: True = gửi trong thread riêng (không block)
                         False = gửi đồng bộ (block đến khi xong)
+            timeout   : giây chờ kết nối — hết timeout = coi peer bị crash
         """
         if async_send:
-            send_to_async(peer.host, peer.port, payload)
+            send_to_async(peer.host, peer.port, payload,
+                        timeout=timeout,
+                        on_fail=self._on_peer_failure(peer))
         else:
-            send_to(peer.host, peer.port, payload)
+            try:
+                send_to(peer.host, peer.port, payload, timeout=timeout)
+            except ConnectionError:
+                self._on_peer_failure(peer)()
 
         with self._stat_lock:
             self.msg_sent += 1
-            
+
+    def _on_peer_failure(self, peer: PeerInfo):
+        """
+        Trả về callback được gọi khi không liên lạc được peer.
+        Tách thành hàm riêng để subclass có thể override nếu muốn
+        xử lý crash theo cách riêng của từng thuật toán.
+        """
+        def _callback():
+            self.log(
+                f"CẢNH BÁO: Không liên lạc được P{peer.pid} "
+                f"({peer.host}:{peer.port}) — peer có thể đã crash.\n"
+                f"  Trong R-A gốc: không có cơ chế xử lý → "
+                f"các process đang WANTED sẽ chờ mãi (blocked).\n"
+                f"  Mở rộng thực tế: cần failure detector (Zookeeper/etcd) "
+                f"để loại peer này khỏi tập N.",
+                level="warning"
+            )
+            # Đánh dấu peer này là suspected crash
+            # để RAProcess có thể tự xử lý nếu muốn
+            self._mark_suspected(peer.pid)
+
+        return _callback
+
+    def _mark_suspected(self, pid: int) -> None:
+        """
+        Ghi nhận pid bị nghi là crash.
+        Mặc định chỉ log — RAProcess override để xử lý thêm.
+        """
+        if not hasattr(self, '_suspected'):
+            self._suspected = set()
+        self._suspected.add(pid)
+        self.log(f"P{pid} được đánh dấu suspected-crash", level="warning")
+                
 
     def broadcast(self, payload: bytes,
                   exclude_pid: Optional[int] = None) -> None:
